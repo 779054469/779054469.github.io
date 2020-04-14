@@ -621,7 +621,7 @@ var_dump($_SESSION);
 </ul>
 <h4 id="5-2-复杂POP链构造与phar反序列化后续跟进"><a href="#5-2-复杂POP链构造与phar反序列化后续跟进" class="headerlink" title="5.2.复杂POP链构造与phar反序列化后续跟进"></a>5.2.复杂POP链构造与phar反序列化后续跟进</h4>]]></content>
       <categories>
-        <category>漏洞总结s</category>
+        <category>漏洞总结</category>
       </categories>
       <tags>
         <tag>PHP</tag>
