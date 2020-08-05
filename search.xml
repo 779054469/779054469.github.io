@@ -1029,7 +1029,7 @@ RUN [“sh”,”-c”,”echo”,”$HOME”]</code></pre></li>
 </ol>
 ]]></content>
       <categories>
-        <category>学习笔记</category>
+        <category>学习总结</category>
       </categories>
       <tags>
         <tag>Docker</tag>
